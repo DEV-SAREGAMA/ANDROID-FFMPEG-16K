@@ -978,7 +978,7 @@ static int64_t getmaxrss(void)
 #endif
 }
 
-int main(int argc, char **argv)
+int ffmpeg_main_internal(int argc, char **argv)
 {
     Scheduler *sch = NULL;
 
@@ -1051,4 +1051,21 @@ finish:
     av_log(NULL, AV_LOG_VERBOSE, "Exiting with exit code %d\n", ret);
 
     return ret;
+}
+
+void ffmpeg_reset_state(void)
+{
+    // These should already be freed by ffmpeg_cleanup(ret),
+    // here we just make sure the pointers/counters are reset to a clean state.
+
+    nb_output_files  = 0;
+    nb_input_files   = 0;
+    nb_filtergraphs  = 0;
+
+    output_files     = NULL;
+    input_files      = NULL;
+    filtergraphs     = NULL;
+
+    // If you see other non-static globals in ffmpeg.c / ffmpeg_opt.c / ffmpeg_filter.c
+    // that look like arrays/queues, reset them here too.
 }

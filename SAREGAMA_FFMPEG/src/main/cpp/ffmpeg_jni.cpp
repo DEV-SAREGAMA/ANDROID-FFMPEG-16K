@@ -10,10 +10,9 @@ extern "C" {
 #include <libavutil/avutil.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
-
+#include <mutex>
 // From fftools/ffmpeg.c
-int ffmpeg_main(int argc, char **argv);
-}
+extern "C" int ffmpeg_main(int argc, char **argv);
 
 #define LOG_TAG "FFmpegJNI"
 #define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -38,15 +37,29 @@ static std::string safeStr(const char *s) {
 static std::string jsonEscape(const std::string &s) {
     std::string out;
     out.reserve(s.size() + 8);
-    for (char c : s) {
+    for (char c: s) {
         switch (c) {
-            case '\"': out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\b': out += "\\b";  break;
-            case '\f': out += "\\f";  break;
-            case '\n': out += "\\n";  break;
-            case '\r': out += "\\r";  break;
-            case '\t': out += "\\t";  break;
+            case '\"':
+                out += "\\\"";
+                break;
+            case '\\':
+                out += "\\\\";
+                break;
+            case '\b':
+                out += "\\b";
+                break;
+            case '\f':
+                out += "\\f";
+                break;
+            case '\n':
+                out += "\\n";
+                break;
+            case '\r':
+                out += "\\r";
+                break;
+            case '\t':
+                out += "\\t";
+                break;
             default:
                 if (static_cast<unsigned char>(c) >= 0x20) {
                     out += c;
@@ -111,7 +124,7 @@ static void convertJavaArgs(JNIEnv *env, jobjectArray argsArray,
         env->DeleteLocalRef(arg);
     }
 
-    for (auto &s : argsStr) {
+    for (auto &s: argsStr) {
         argv.push_back(const_cast<char *>(s.c_str()));
     }
 }
@@ -286,7 +299,7 @@ Java_com_saregama_android_ffmpeg_FFmpegNative_nativeRequestCancel(
     // NOTE: To truly abort FFmpeg, you’d need to use this in
     // fftools/ffmpeg.c’s decode_interrupt_cb(), etc.
 }
-
+static std::mutex g_ffmpegMutex;
 // ---- runCommand(args: Array<String>) ----
 extern "C"
 JNIEXPORT jint JNICALL
@@ -300,21 +313,45 @@ Java_com_saregama_android_ffmpeg_FFmpegNative_runCommand(
         return -1;
     }
 
-    g_cancelRequested = 0; // reset soft flag
+    std::lock_guard<std::mutex> lock(g_ffmpegMutex);
+    // From here on, only one thread can be running FFmpeg at a time.
+
+    g_cancelRequested = 0; // reset soft cancel flag for each run
 
     std::vector<std::string> argsStr;
     std::vector<char *> argv;
     convertJavaArgs(env, argsArray, argsStr, argv);
 
+    // Ensure argv[0] is a program name ("ffmpeg") if your convertJavaArgs
+    // did not already add it.
+    if (argv.empty() || std::string(argv[0]).empty()) {
+        argsStr.insert(argsStr.begin(), "ffmpeg");
+        argv.clear();
+        argv.reserve(argsStr.size());
+        for (auto &s: argsStr) {
+            argv.push_back(const_cast<char *>(s.c_str()));
+        }
+    }
+
     int argc = (int) argv.size();
 
     ALOGI("Running FFmpeg with %d args", argc);
+#ifdef DEBUG
+    for (int i = 0; i < argc; ++i) {
+        ALOGI("  arg[%d] = %s", i, argv[i]);
+    }
+#endif
 
-    // CLI main
+    // *** IMPORTANT ***
+    // ffmpeg_main MUST be the safe wrapper we discussed:
+    //   - internally calls ffmpeg_main_internal(argc, argv)
+    //   - calls ffmpeg_cleanup(ret) (if not already called inside)
+    //   - calls ffmpeg_reset_state() to clear globals for the next run
     int result = ffmpeg_main(argc, argv.data());
 
     ALOGI("FFmpeg finished with code %d", result);
 
+    // argsStr / argv use RAII, nothing to free manually.
     return result;
 }
 
@@ -433,5 +470,4 @@ Java_com_saregama_android_ffmpeg_FFmpegNative_isHardwareCodecSupported(
 
     return JNI_FALSE;
 }
-
-
+}
