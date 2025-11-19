@@ -57,7 +57,7 @@ android {
     }
 }
 group = "com.github.DEV-SAREGAMA"
-version = "1.0.0"
+version = "1.1.0"
 afterEvaluate {
     println("Publishing to GitHub as user=" +
             ((project.findProperty("gpr.user") as String?)
@@ -71,7 +71,7 @@ afterEvaluate {
 
                 groupId = "com.saregama.android"
                 artifactId = "ffmpeg-16k"
-                version = "1.0.0"
+                version = "1.1.0"
 
                 pom {
                     name.set("Saregama Android FFmpeg 16K")
