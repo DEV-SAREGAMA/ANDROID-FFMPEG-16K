@@ -56,6 +56,8 @@ android {
         singleVariant("release")
     }
 }
+group = "com.github.DEV-SAREGAMA"
+version = "1.0.0"
 afterEvaluate {
     println("Publishing to GitHub as user=" +
             ((project.findProperty("gpr.user") as String?)
