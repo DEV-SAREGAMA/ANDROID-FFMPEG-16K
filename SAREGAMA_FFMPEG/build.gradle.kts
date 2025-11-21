@@ -29,6 +29,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -57,7 +58,7 @@ android {
     }
 }
 group = "com.github.DEV-SAREGAMA"
-version = "1.1.0"
+version = "1.1.1"
 afterEvaluate {
     println("Publishing to GitHub as user=" +
             ((project.findProperty("gpr.user") as String?)
@@ -71,7 +72,7 @@ afterEvaluate {
 
                 groupId = "com.saregama.android"
                 artifactId = "ffmpeg-16k"
-                version = "1.1.0"
+                version = "1.1.1"
 
                 pom {
                     name.set("Saregama Android FFmpeg 16K")
